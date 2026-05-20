@@ -103,6 +103,7 @@ const ApplicationForm = () => {
   const [isAadharFocused, setIsAadharFocused] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [academicSupportType, setAcademicSupportType] = useState("");
+  const [isManualInput, setIsManualInput] = useState(false);
 
   useEffect(() => {
     // SEO Meta Tags
@@ -182,6 +183,7 @@ const ApplicationForm = () => {
         (error) => {
           console.error("Geolocation error:", error);
           setIsLocating(false);
+          setIsManualInput(true); // Fallback to manual entry if browser blocks or fails
         }
       );
     }
@@ -670,10 +672,17 @@ const ApplicationForm = () => {
 
                 <div className="space-y-6">
                   <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                    <h3 className="text-blue-300 font-medium mb-4 flex items-center gap-2">
-                      📍 Current Location Details
-                      {isLocating && <span className="text-xs text-gray-400 animate-pulse">(Detecting...)</span>}
-                    </h3>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-blue-300 font-medium flex items-center gap-2">
+                        📍 Current Location Details
+                        {isLocating && <span className="text-xs text-gray-400 animate-pulse">(Detecting...)</span>}
+                      </h3>
+                      {!isManualInput && (
+                        <button type="button" onClick={() => setIsManualInput(true)} className="text-[10px] text-blue-400 hover:underline px-2 py-0.5 bg-blue-500/10 rounded border border-blue-500/20 font-bold uppercase">
+                          Enter Manually
+                        </button>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1 sm:col-span-2">
                         <label htmlFor="currentAddress" className="block text-sm font-medium text-white">Full Address <span className="text-red-500">*</span></label>
@@ -681,18 +690,18 @@ const ApplicationForm = () => {
                         <FieldError name="currentAddress" />
                       </div>
                       <div className="space-y-1">
-                        <label className="block text-sm font-medium text-white">State (Auto) <span className="text-red-500">*</span></label>
-                        <input value={formData.currentState} readOnly className={`p-3 rounded-xl bg-white/5 border ${formErrors.currentState ? 'border-red-500' : 'border-white/20'} text-gray-400 w-full cursor-not-allowed`} placeholder="Detecting..." />
+                        <label className="block text-sm font-medium text-white">State (Auto/Manual) <span className="text-red-500">*</span></label>
+                        <input name="currentState" value={formData.currentState} onChange={handleChange} readOnly={!isManualInput} className={`p-3 rounded-xl bg-white/10 border ${formErrors.currentState ? 'border-red-500' : 'border-white/30'} text-white w-full ${!isManualInput ? 'cursor-not-allowed bg-white/5 opacity-80' : ''}`} placeholder={isManualInput ? "Enter State" : "Detecting..."} />
                         <FieldError name="currentState" />
                       </div>
                       <div className="space-y-1">
-                        <label className="block text-sm font-medium text-white">Pin Code (Auto) <span className="text-red-500">*</span></label>
-                        <input value={formData.currentPinCode} readOnly className={`p-3 rounded-xl bg-white/5 border ${formErrors.currentPinCode ? 'border-red-500' : 'border-white/20'} text-gray-400 w-full cursor-not-allowed`} placeholder="Detecting..." />
+                        <label className="block text-sm font-medium text-white">Pin Code (Auto/Manual) <span className="text-red-500">*</span></label>
+                        <input name="currentPinCode" value={formData.currentPinCode} onChange={handleChange} readOnly={!isManualInput} className={`p-3 rounded-xl bg-white/10 border ${formErrors.currentPinCode ? 'border-red-500' : 'border-white/30'} text-white w-full ${!isManualInput ? 'cursor-not-allowed bg-white/5 opacity-80' : ''}`} placeholder={isManualInput ? "Enter Pin Code" : "Detecting..."} />
                         <FieldError name="currentPinCode" />
                       </div>
                       <div className="space-y-1 sm:col-span-2">
-                        <label className="block text-sm font-medium text-white">City (Auto) <span className="text-red-500">*</span></label>
-                        <input value={formData.currentCity} readOnly className={`p-3 rounded-xl bg-white/5 border ${formErrors.currentCity ? 'border-red-500' : 'border-white/20'} text-gray-400 w-full cursor-not-allowed`} placeholder="Detecting..." />
+                        <label className="block text-sm font-medium text-white">City (Auto/Manual) <span className="text-red-500">*</span></label>
+                        <input name="currentCity" value={formData.currentCity} onChange={handleChange} readOnly={!isManualInput} className={`p-3 rounded-xl bg-white/10 border ${formErrors.currentCity ? 'border-red-500' : 'border-white/30'} text-white w-full ${!isManualInput ? 'cursor-not-allowed bg-white/5 opacity-80' : ''}`} placeholder={isManualInput ? "Enter City" : "Detecting..."} />
                         <FieldError name="currentCity" />
                       </div>
                       <div className="sm:col-span-2 grid grid-cols-3 gap-2 mt-2">
