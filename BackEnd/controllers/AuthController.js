@@ -26,11 +26,14 @@ export const registerUser = async (req, res) => {
     // ✅ Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ message: "User already exists." });
+      return res.status(409).json({ message: "Email already registered." });
     }
-    const existingMobile = await User.findOne({ mobile });
-    if (existingMobile) {
-      return res.status(409).json({ message: "User already exists." });
+    
+    if (mobile && mobile.trim() !== "") {
+      const existingMobile = await User.findOne({ mobile });
+      if (existingMobile) {
+        return res.status(409).json({ message: "Mobile number already registered." });
+      }
     }
 
     // ✅ Hash the password
@@ -40,7 +43,7 @@ export const registerUser = async (req, res) => {
     const newUser = new User({
       fullName,
       email,
-      mobile,
+      mobile: mobile || "",
       password: hashedPassword,
       role,
     });

@@ -60,9 +60,7 @@ const RegisterPage = () => {
         setTimeout(() => navigate("/login"), 1200);
       }
     } catch (err) {
-      if (err.response?.status === 409) setError("Email already registered.");
-      else if (err.response?.status === 400) setError("Invalid data provided.");
-      else setError("Registration failed. Please try again.");
+      setError(err.response?.data?.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
