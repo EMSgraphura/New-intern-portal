@@ -1,4 +1,5 @@
 import Planner from "../models/Planner.js";
+import InternHead from "../models/InternHead.js";
 
 // ✅ Create planner entries (Supports single or bulk)
 export const createPlanner = async (req, res) => {
@@ -6,6 +7,19 @@ export const createPlanner = async (req, res) => {
     const { entries } = req.body; // Expecting an array for bulk, or use fallback for single
 
     if (entries && Array.isArray(entries)) {
+      // Validate all first to avoid partial creation
+      if (req.user.role === "InternIncharge" || req.user.role === "InternHead") {
+        const incharge = await InternHead.findById(req.user.id);
+        if (!incharge) {
+          return res.status(404).json({ message: "Incharge profile not found" });
+        }
+        for (const entry of entries) {
+          if (!incharge.departments.includes(entry.department)) {
+            return res.status(403).json({ message: `Access denied. You are not assigned to the department: ${entry.department}` });
+          }
+        }
+      }
+
       const createdEntries = [];
       for (const entry of entries) {
         const { date, department, meetingTime, agenda } = entry;
@@ -31,6 +45,16 @@ export const createPlanner = async (req, res) => {
     const { date, department, meetingTime, agenda } = req.body;
     if (!date || !department || !meetingTime) {
       return res.status(400).json({ message: "All fields are required" });
+    }
+
+    if (req.user.role === "InternIncharge" || req.user.role === "InternHead") {
+      const incharge = await InternHead.findById(req.user.id);
+      if (!incharge) {
+        return res.status(404).json({ message: "Incharge profile not found" });
+      }
+      if (!incharge.departments.includes(department)) {
+        return res.status(403).json({ message: `Access denied. You are not assigned to the department: ${department}` });
+      }
     }
 
     const dateObj = new Date(date);
@@ -73,7 +97,7 @@ export const getPlanner = async (req, res) => {
   }
 };
 
-// ✅ Update a planner entry (HR Manager/Admin)
+// ✅ Update a planner entry (HR Manager/Admin/Incharge)
 export const updatePlanner = async (req, res) => {
   try {
     const { id } = req.params;
@@ -82,13 +106,28 @@ export const updatePlanner = async (req, res) => {
     const entry = await Planner.findById(id);
     if (!entry) return res.status(404).json({ message: "Entry not found" });
 
+    if (req.user.role === "InternIncharge" || req.user.role === "InternHead") {
+      const incharge = await InternHead.findById(req.user.id);
+      if (!incharge) {
+        return res.status(404).json({ message: "Incharge profile not found" });
+      }
+      // Check existing department permission
+      if (!incharge.departments.includes(entry.department)) {
+        return res.status(403).json({ message: `Access denied. You cannot modify entries for the department: ${entry.department}` });
+      }
+      // Check new department permission if it's being updated
+      if (department && !incharge.departments.includes(department)) {
+        return res.status(403).json({ message: `Access denied. You are not assigned to the department: ${department}` });
+      }
+    }
+
     if (date) {
       const dateObj = new Date(date);
       entry.date = date;
       entry.day = dateObj.toLocaleDateString("en-US", { weekday: "long" });
       entry.year = dateObj.getFullYear().toString();
     }
-    
+
     if (department) entry.department = department;
     if (meetingTime) entry.meetingTime = meetingTime;
     if (agenda) entry.agenda = agenda;
@@ -100,13 +139,24 @@ export const updatePlanner = async (req, res) => {
   }
 };
 
-// ✅ Delete a planner entry (HR Manager/Admin)
+// ✅ Delete a planner entry (HR Manager/Admin/Incharge)
 export const deletePlanner = async (req, res) => {
   try {
     const { id } = req.params;
-    const entry = await Planner.findByIdAndDelete(id);
+    const entry = await Planner.findById(id);
     if (!entry) return res.status(404).json({ message: "Entry not found" });
 
+    if (req.user.role === "InternIncharge" || req.user.role === "InternHead") {
+      const incharge = await InternHead.findById(req.user.id);
+      if (!incharge) {
+        return res.status(404).json({ message: "Incharge profile not found" });
+      }
+      if (!incharge.departments.includes(entry.department)) {
+        return res.status(403).json({ message: `Access denied. You cannot delete entries for the department: ${entry.department}` });
+      }
+    }
+
+    await Planner.findByIdAndDelete(id);
     res.status(200).json({ message: "Entry deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting entry", error: error.message });

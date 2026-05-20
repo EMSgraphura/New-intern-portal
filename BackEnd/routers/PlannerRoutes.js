@@ -12,9 +12,9 @@ const router = express.Router();
 // 🔓 Public Route - Everyone can view the planner
 router.get("/", getPlanner);
 
-// 🔒 Protected Routes - Only HR Manager and Admin can manage
-router.post("/", verifyToken, verifyRole(["Admin", "HR Manager"]), createPlanner);
-router.put("/:id", verifyToken, verifyRole(["Admin", "HR Manager"]), updatePlanner);
-router.delete("/:id", verifyToken, verifyRole(["Admin", "HR Manager"]), deletePlanner);
+// 🔒 Protected Routes - Only HR Manager, Admin, and Intern Head can manage
+router.post("/", verifyToken, verifyRole(["Admin", "HR Manager", "HR", "InternHead", "InternIncharge"]), createPlanner);
+router.put("/:id", verifyToken, verifyRole(["Admin", "HR Manager", "HR", "InternHead", "InternIncharge"]), updatePlanner);
+router.delete("/:id", verifyToken, verifyRole(["Admin", "HR Manager", "HR", "InternHead", "InternIncharge"]), deletePlanner);
 
 export default router;

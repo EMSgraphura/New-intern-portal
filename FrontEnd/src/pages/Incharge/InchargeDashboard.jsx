@@ -768,6 +768,13 @@ const InternInchargeDashboard = () => {
                 <span className="font-semibold">Manage Resignations</span>
               </button>
               <button
+                onClick={() => navigate("/incharge/manage-planner")}
+                className="cursor-pointer flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <CalendarIcon size={20} />
+                <span className="font-semibold">Manage Planner</span>
+              </button>
+              <button
                 onClick={() => {
                   setShowMeetingsModal(true);
                   fetchDepartmentMeetings();

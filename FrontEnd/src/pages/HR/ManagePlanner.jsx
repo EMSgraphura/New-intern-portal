@@ -23,8 +23,88 @@ const ManagePlanner = () => {
     selectedDays: [] // ["Monday", "Wednesday", etc.]
   });
   const navigate = useNavigate();
-  const storedUser = JSON.parse(localStorage.getItem("user"));
-  const basePath = storedUser?.role === "HR Manager" ? "/HR-Manager-Dashboard" : "/HR-Dashboard";
+  const location = useLocation();
+  
+  const isInchargePath = location.pathname.startsWith("/incharge");
+  const storedUser = isInchargePath
+    ? JSON.parse(localStorage.getItem("internIncharge"))
+    : JSON.parse(localStorage.getItem("user"));
+  
+  let basePath = "/HR-Dashboard";
+  if (isInchargePath) {
+    basePath = "/intern-incharge-dashboard";
+  } else if (storedUser?.role === "HR Manager") {
+    basePath = "/HR-Manager-Dashboard";
+  } else if (storedUser?.role === "Admin") {
+    basePath = "/Admin-Dashboard";
+  }
+
+  const allDepartments = [
+    "Sales & Marketing",
+    "Data & AI Intelligence",
+    "Human Resources",
+    "Social Media Management",
+    "Graphic Design",
+    "Digital Marketing",
+    "Video Editing",
+    "Full Stack Development",
+    "MERN Stack Development",
+    "Email and Outreaching",
+    "Content Writing",
+    "Content Creator",
+    "UI/UX Designing",
+    "Front-end Developer",
+    "Back-end Developer",
+    "IT Department",
+    "Finance & Accounts",
+    "Legal Department",
+    "Product Management",
+    "Business Development",
+    "Cyber Security",
+    "Cloud Computing",
+    "General / All Departments"
+  ];
+
+  const isSpecialUser = storedUser?.role === "Admin" || storedUser?.role === "HR Manager" || storedUser?.role === "HR";
+
+  const isDeptAssigned = (dept) => {
+    if (isSpecialUser) return true;
+    const assignedDepts = Array.isArray(storedUser?.department) ? storedUser.department : [];
+    
+    return assignedDepts.some(assignedDept => {
+      const normAssigned = assignedDept.toLowerCase().trim();
+      const normDept = dept.toLowerCase().trim();
+      if (normAssigned === normDept) return true;
+      
+      // Handle the "Data Science & Analytics" vs "Data & AI Intelligence" mismatch
+      if (
+        (normAssigned.includes("data science") || normAssigned.includes("analytics") || normAssigned.includes("ai")) &&
+        (normDept.includes("data science") || normDept.includes("analytics") || normDept.includes("ai"))
+      ) {
+        return true;
+      }
+      return false;
+    });
+  };
+
+  const allowedDepartments = allDepartments.filter(dept => isDeptAssigned(dept));
+  const assignedDepts = Array.isArray(storedUser?.department) ? storedUser.department : [];
+  const normalizedAssignedDepts = assignedDepts.map(d => {
+    const norm = d.toLowerCase().trim();
+    if (norm.includes("data science") || norm.includes("analytics") || norm.includes("ai")) {
+      return "Data & AI Intelligence";
+    }
+    return d;
+  });
+
+  const displayDepartments = isSpecialUser
+    ? allDepartments
+    : (allowedDepartments.length > 0 ? allowedDepartments : normalizedAssignedDepts);
+
+  const canManage = (item) => {
+    if (isSpecialUser) return true;
+    return isDeptAssigned(item.department);
+  };
 
   // Menu Dropdown States
   const [showRecruitmentDropdown, setShowRecruitmentDropdown] = useState(false);
@@ -58,22 +138,38 @@ const ManagePlanner = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.post("/api/logout", {}, { withCredentials: true });
+      if (storedUser?.role === "InternHead" || storedUser?.role === "InternIncharge") {
+        await axios.post("/api/intern-incharge/logout", {}, { withCredentials: true });
+      } else {
+        await axios.post("/api/logout", {}, { withCredentials: true });
+      }
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
       localStorage.removeItem('user');
-      navigate("/login", { replace: true });
+      localStorage.removeItem('internIncharge');
+      if (storedUser?.role === "InternHead" || storedUser?.role === "InternIncharge") {
+        navigate("/intern-incharge-login", { replace: true });
+      } else {
+        navigate("/login", { replace: true });
+      }
     }
   };
 
   useEffect(() => {
-    if (!storedUser || (storedUser.role !== "Admin" && storedUser.role !== "HR Manager")) {
-      navigate("/login");
-      return;
+    if (isInchargePath) {
+      if (!storedUser || (storedUser.role !== "InternHead" && storedUser.role !== "InternIncharge")) {
+        navigate("/intern-incharge-login");
+        return;
+      }
+    } else {
+      if (!storedUser || (storedUser.role !== "Admin" && storedUser.role !== "HR Manager" && storedUser.role !== "HR")) {
+        navigate("/login");
+        return;
+      }
     }
     fetchPlanner();
-  }, []);
+  }, [location.pathname]);
 
   const fetchPlanner = async () => {
     setLoading(true);
@@ -197,7 +293,9 @@ const ManagePlanner = () => {
               </div>
               <div className="hidden lg:block">
                 <p className="text-[13px] font-black text-slate-800 tracking-tight leading-none">IMS Portal</p>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">HR Manager</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                  {(storedUser?.role === "InternHead" || storedUser?.role === "InternIncharge") ? "Intern Incharge" : (storedUser?.role || "HR Manager")}
+                </p>
               </div>
             </div>
 
@@ -347,8 +445,8 @@ const ManagePlanner = () => {
                   {storedUser?.fullName?.charAt(0) || "M"}
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-[11px] font-black text-slate-800 truncate max-w-[100px] leading-tight">{storedUser?.fullName || "HR Manager"}</p>
-                  <p className="text-[9px] text-indigo-500 font-bold leading-none mt-0.5">{storedUser?.role || "HR Manager"}</p>
+                  <p className="text-[11px] font-black text-slate-800 truncate max-w-[100px] leading-tight">{storedUser?.fullName || ((storedUser?.role === "InternHead" || storedUser?.role === "InternIncharge") ? "Intern Incharge" : "HR Manager")}</p>
+                  <p className="text-[9px] text-indigo-500 font-bold leading-none mt-0.5">{(storedUser?.role === "InternHead" || storedUser?.role === "InternIncharge") ? "Intern Incharge" : (storedUser?.role || "HR Manager")}</p>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
@@ -358,7 +456,7 @@ const ManagePlanner = () => {
                   <div className="px-4 py-2.5 border-b border-slate-100">
                     <p className="text-[12px] font-black text-slate-800 truncate">{storedUser?.fullName}</p>
                     <p className="text-[10px] text-slate-500 truncate mt-0.5">{storedUser?.email}</p>
-                    <span className="inline-block mt-1.5 px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded text-[9px] font-black uppercase">{storedUser?.role}</span>
+                    <span className="inline-block mt-1.5 px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded text-[9px] font-black uppercase">{(storedUser?.role === "InternHead" || storedUser?.role === "InternIncharge") ? "Intern Incharge" : storedUser?.role}</span>
                   </div>
                   <button
                     onClick={() => { setShowProfileDropdown(false); handleLogout(); }}
@@ -378,7 +476,9 @@ const ManagePlanner = () => {
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-800 flex items-center gap-2">
               Meetings Schedule Hub
-              <span className="text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-150 shadow-sm shadow-indigo-50/50">HR Manager Control</span>
+              <span className="text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-150 shadow-sm shadow-indigo-50/50">
+                {(storedUser?.role === "InternHead" || storedUser?.role === "InternIncharge") ? "Incharge Control" : "HR Manager Control"}
+              </span>
             </h2>
             <p className="text-slate-500 text-xs font-semibold mt-1">Manage, edit, schedule and broadcast recurring department meetings across the organization.</p>
           </div>
@@ -517,22 +617,24 @@ const ManagePlanner = () => {
                         <p className="text-sm font-medium text-slate-600 max-w-xl line-clamp-1">{item.agenda}</p>
                       </td>
                       <td className="px-6 py-5">
-                        <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => openEditModal(item)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item._id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        {canManage(item) && (
+                          <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => openEditModal(item)}
+                              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item._id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -605,29 +707,9 @@ const ManagePlanner = () => {
                       className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none text-sm appearance-none cursor-pointer transition-all"
                     >
                       <option value="">Select Domain...</option>
-                      <option value="Sales & Marketing">Sales & Marketing</option>
-                      <option value="Data & AI Intelligence">Data & AI Intelligence</option>
-                      <option value="Human Resources">Human Resources</option>
-                      <option value="Social Media Management">Social Media Management</option>
-                      <option value="Graphic Design">Graphic Design</option>
-                      <option value="Digital Marketing">Digital Marketing</option>
-                      <option value="Video Editing">Video Editing</option>
-                      <option value="Full Stack Development">Full Stack Development</option>
-                      <option value="MERN Stack Development">MERN Stack Development</option>
-                      <option value="Email and Outreaching">Email and Outreaching</option>
-                      <option value="Content Writing">Content Writing</option>
-                      <option value="Content Creator">Content Creator</option>
-                      <option value="UI/UX Designing">UI/UX Designing</option>
-                      <option value="Front-end Developer">Front-end Developer</option>
-                      <option value="Back-end Developer">Back-end Developer</option>
-                      <option value="IT Department">IT Department</option>
-                      <option value="Finance & Accounts">Finance & Accounts</option>
-                      <option value="Legal Department">Legal Department</option>
-                      <option value="Product Management">Product Management</option>
-                      <option value="Business Development">Business Development</option>
-                      <option value="Cyber Security">Cyber Security</option>
-                      <option value="Cloud Computing">Cloud Computing</option>
-                      <option value="General / All Departments">General / All Departments</option>
+                      {displayDepartments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

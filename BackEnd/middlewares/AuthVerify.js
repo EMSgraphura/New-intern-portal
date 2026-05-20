@@ -7,10 +7,17 @@ export const verifyToken = (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized. Please log in." });
   }
 
-  const token = cookie
+  let token = cookie
     .split("; ")
     .find(row => row.startsWith("token="))
     ?.split("=")[1];
+
+  if (!token) {
+    token = cookie
+      .split("; ")
+      .find(row => row.startsWith("internIncharge_token="))
+      ?.split("=")[1];
+  }
 
   if (!token) {
     return res.status(401).json({ message: "Token missing" });

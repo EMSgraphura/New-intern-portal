@@ -49,6 +49,7 @@ function App() {
         <Route path="/apply" element={<ApplicationForm />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/incharge/intern-tasks" element={<InternTasks />} />
+        <Route path="/incharge/manage-planner" element={<ManagePlanner />} />
 
 
         <Route path="/Verify/intern" element={<InternVerificationPortal />} />

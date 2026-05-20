@@ -11,21 +11,25 @@ import stream from 'stream';
 import fs from 'fs';
 import path from 'path';
 
-let drive = null;
-try {
-  const credentialsPath = path.join(process.cwd(), 'credentials.json');
-  if (fs.existsSync(credentialsPath)) {
+// Drive is initialized fresh per request from credentials.json so that
+// replacing credentials.json with a new file takes effect immediately
+// without needing to restart the server.
+function getDriveClient() {
+  try {
+    const credentialsPath = path.join(process.cwd(), 'credentials.json');
+    if (!fs.existsSync(credentialsPath)) {
+      console.warn('credentials.json not found. Google Drive upload is disabled.');
+      return null;
+    }
     const auth = new google.auth.GoogleAuth({
       keyFile: credentialsPath,
       scopes: ['https://www.googleapis.com/auth/drive.file'],
     });
-    drive = google.drive({ version: 'v3', auth });
-    console.log("Google Drive API Initialized successfully.");
-  } else {
-    console.warn("credentials.json not found. Google Drive upload is disabled.");
+    return google.drive({ version: 'v3', auth });
+  } catch (error) {
+    console.error('Failed to create Drive client:', error.message);
+    return null;
   }
-} catch (error) {
-  console.log("Drive API error:", error.message);
 }
 
 export const createIntern = async (req, res) => {
@@ -57,47 +61,54 @@ export const createIntern = async (req, res) => {
     if (existingMobile) return res.status(400).json({ message: "Application already applied" });
 
     let finalResumeUrl = internData.resumeUrl || "";
+    const drive = getDriveClient();
 
-    if (req.file && drive && process.env.GOOGLE_DRIVE_FOLDER_ID) {
-      try {
-        console.log("Starting Google Drive upload to folder:", process.env.GOOGLE_DRIVE_FOLDER_ID);
-        const bufferStream = new stream.PassThrough();
-        bufferStream.end(req.file.buffer);
+    if (req.file && process.env.GOOGLE_DRIVE_FOLDER_ID) {
+      if (!drive) {
+        console.warn('Google Drive client unavailable – resume will be saved without a Drive link.');
+        finalResumeUrl = '';
+      } else {
+        try {
+          console.log('Starting Google Drive upload to folder:', process.env.GOOGLE_DRIVE_FOLDER_ID);
+          const bufferStream = new stream.PassThrough();
+          bufferStream.end(req.file.buffer);
 
-        const response = await drive.files.create({
-          requestBody: {
-            name: `${internData.fullName}_Resume_${Date.now()}${path.extname(req.file.originalname)}`,
-            parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
-          },
-          media: {
-            mimeType: req.file.mimetype,
-            body: bufferStream,
-          },
-          fields: 'id, webViewLink',
-          supportsAllDrives: true,
-          supportsTeamDrives: true,
-        });
+          const response = await drive.files.create({
+            requestBody: {
+              name: `${internData.fullName}_Resume_${Date.now()}${path.extname(req.file.originalname)}`,
+              parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+            },
+            media: {
+              mimeType: req.file.mimetype,
+              body: bufferStream,
+            },
+            fields: 'id, webViewLink',
+            supportsAllDrives: true,
+            supportsTeamDrives: true,
+          });
 
-        console.log("File created on Drive. ID:", response.data.id);
+          console.log('File created on Drive. ID:', response.data.id);
 
-        await drive.permissions.create({
-          fileId: response.data.id,
-          requestBody: {
-            role: 'reader',
-            type: 'anyone',
-          },
-          supportsAllDrives: true,
-          supportsTeamDrives: true,
-        });
+          await drive.permissions.create({
+            fileId: response.data.id,
+            requestBody: {
+              role: 'reader',
+              type: 'anyone',
+            },
+            supportsAllDrives: true,
+            supportsTeamDrives: true,
+          });
 
-        finalResumeUrl = response.data.webViewLink;
-        console.log("Drive upload successful:", finalResumeUrl);
-      } catch (uploadError) {
-        console.error("Google Drive Upload Error:", uploadError.message);
-        finalResumeUrl = `Upload Failed: ${uploadError.message}`;
+          finalResumeUrl = response.data.webViewLink;
+          console.log('Drive upload successful:', finalResumeUrl);
+        } catch (uploadError) {
+          // Log full error for debugging but do NOT store it as the resume URL.
+          // The application is still saved; the admin can re-upload the resume manually.
+          console.error('Google Drive Upload Error:', uploadError.message);
+          console.error('Drive upload failed – likely invalid/expired credentials.json key. Please regenerate the service account key from GCP Console.');
+          finalResumeUrl = '';
+        }
       }
-    } else if (!finalResumeUrl) {
-      finalResumeUrl = "No Resume Uploaded (Drive not configured)";
     }
 
     // Create new intern
